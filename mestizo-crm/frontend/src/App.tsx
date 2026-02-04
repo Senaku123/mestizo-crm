@@ -11,6 +11,7 @@ import QuoteDetail from './pages/QuoteDetail';
 import Projects from './pages/Projects';
 import ProjectDetail from './pages/ProjectDetail';
 import ImportData from './pages/ImportData';
+import History from './pages/History';
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
     const { isAuthenticated, isLoading } = useAuth();
@@ -139,6 +140,17 @@ function App() {
                     <PrivateRoute>
                         <AppLayout>
                             <ImportData />
+                        </AppLayout>
+                    </PrivateRoute>
+                }
+            />
+
+            <Route
+                path="/history"
+                element={
+                    <PrivateRoute>
+                        <AppLayout>
+                            <History />
                         </AppLayout>
                     </PrivateRoute>
                 }

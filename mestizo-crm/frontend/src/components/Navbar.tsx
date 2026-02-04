@@ -43,6 +43,12 @@ export default function Navbar() {
                     </NavLink>
                 </li>
                 <li>
+                    <NavLink to="/history" className={({ isActive }) => isActive ? 'active' : ''}>
+                        <span className="icon">📚</span>
+                        Historial
+                    </NavLink>
+                </li>
+                <li>
                     <NavLink to="/import" className={({ isActive }) => isActive ? 'active' : ''}>
                         <span className="icon">📥</span>
                         Importar CSV

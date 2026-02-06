@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { api } from '../api/client';
-import { Opportunity, PaginatedResponse, OpportunityStage } from '../types';
+import { Opportunity, PaginatedResponse, OpportunityStage, Customer } from '../types';
 
 const STAGES: { key: OpportunityStage; label: string; color: string }[] = [
     { key: 'NEW', label: 'Nuevos', color: '#1976d2' },
@@ -14,7 +14,14 @@ const STAGES: { key: OpportunityStage; label: string; color: string }[] = [
 
 export default function Pipeline() {
     const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
+    const [customers, setCustomers] = useState<Customer[]>([]);
     const [isLoading, setIsLoading] = useState(true);
+    const [showModal, setShowModal] = useState(false);
+    const [newOpportunity, setNewOpportunity] = useState({
+        customer: '',
+        title: '',
+        value_estimate: 0
+    });
 
     const fetchOpportunities = async () => {
         try {
@@ -27,9 +34,36 @@ export default function Pipeline() {
         }
     };
 
+    const fetchCustomers = async () => {
+        try {
+            const data = await api.get<PaginatedResponse<Customer>>('/customers/');
+            setCustomers(data.results || []);
+        } catch (error) {
+            console.error('Error fetching customers:', error);
+        }
+    };
+
     useEffect(() => {
         fetchOpportunities();
+        fetchCustomers();
     }, []);
+
+    const handleCreateOpportunity = async (e: React.FormEvent) => {
+        e.preventDefault();
+        try {
+            await api.post('/opportunities/', {
+                customer: Number(newOpportunity.customer),
+                title: newOpportunity.title,
+                value_estimate: newOpportunity.value_estimate,
+                stage: 'NEW'
+            });
+            setShowModal(false);
+            setNewOpportunity({ customer: '', title: '', value_estimate: 0 });
+            fetchOpportunities();
+        } catch (error) {
+            console.error('Error creating opportunity:', error);
+        }
+    };
 
     const handleStageChange = async (opportunityId: number, newStage: OpportunityStage) => {
         try {
@@ -64,10 +98,13 @@ export default function Pipeline() {
         <div>
             <div className="page-header">
                 <h1>🎯 Seguimiento de Ventas</h1>
-                <div>
-                    <span style={{ color: '#6c757d', marginRight: '1rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                    <span style={{ color: '#6c757d' }}>
                         {opportunities.length} oportunidades
                     </span>
+                    <button className="btn btn-primary" onClick={() => setShowModal(true)}>
+                        ➕ Nueva Oportunidad
+                    </button>
                 </div>
             </div>
 
@@ -168,6 +205,63 @@ export default function Pipeline() {
                     );
                 })}
             </div>
+
+            {/* Create Opportunity Modal */}
+            {showModal && (
+                <div className="modal-overlay" onClick={() => setShowModal(false)}>
+                    <div className="modal" onClick={(e) => e.stopPropagation()}>
+                        <div className="modal-header">
+                            <h2>Nueva Oportunidad</h2>
+                            <button className="modal-close" onClick={() => setShowModal(false)}>&times;</button>
+                        </div>
+                        <form onSubmit={handleCreateOpportunity}>
+                            <div className="form-group">
+                                <label>Cliente *</label>
+                                <select
+                                    className="form-control"
+                                    value={newOpportunity.customer}
+                                    onChange={(e) => setNewOpportunity({ ...newOpportunity, customer: e.target.value })}
+                                    required
+                                >
+                                    <option value="">Seleccionar cliente...</option>
+                                    {customers.map(c => (
+                                        <option key={c.id} value={c.id}>{c.name}</option>
+                                    ))}
+                                </select>
+                            </div>
+                            <div className="form-group">
+                                <label>Título *</label>
+                                <input
+                                    type="text"
+                                    className="form-control"
+                                    value={newOpportunity.title}
+                                    onChange={(e) => setNewOpportunity({ ...newOpportunity, title: e.target.value })}
+                                    placeholder="Ej: Proyecto jardín casa norte"
+                                    required
+                                />
+                            </div>
+                            <div className="form-group">
+                                <label>Valor Estimado (ARS)</label>
+                                <input
+                                    type="number"
+                                    className="form-control"
+                                    value={newOpportunity.value_estimate}
+                                    onChange={(e) => setNewOpportunity({ ...newOpportunity, value_estimate: Number(e.target.value) })}
+                                    min="0"
+                                />
+                            </div>
+                            <div className="modal-footer">
+                                <button type="button" className="btn btn-secondary" onClick={() => setShowModal(false)}>
+                                    Cancelar
+                                </button>
+                                <button type="submit" className="btn btn-primary">
+                                    Crear Oportunidad
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

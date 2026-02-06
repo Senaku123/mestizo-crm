@@ -1,16 +1,18 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api/client';
-import { Project, PaginatedResponse, Customer } from '../types';
+import { Project, PaginatedResponse, Customer, Quote } from '../types';
 
 export default function Projects() {
     const [projects, setProjects] = useState<Project[]>([]);
     const [customers, setCustomers] = useState<Customer[]>([]);
+    const [quotes, setQuotes] = useState<Quote[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [statusFilter, setStatusFilter] = useState('');
     const [showModal, setShowModal] = useState(false);
     const [newProject, setNewProject] = useState({
         customer: '',
+        quote: '',
         title: '',
         status: 'PLANNING',
         description: ''
@@ -22,12 +24,14 @@ export default function Projects() {
                 const params: Record<string, string> = {};
                 if (statusFilter) params.status = statusFilter;
 
-                const [projectsData, customersData] = await Promise.all([
+                const [projectsData, customersData, quotesData] = await Promise.all([
                     api.get<PaginatedResponse<Project>>('/projects/', params),
                     api.get<PaginatedResponse<Customer>>('/customers/'),
+                    api.get<PaginatedResponse<Quote>>('/quotes/', { status: 'ACCEPTED' }),
                 ]);
                 setProjects(projectsData.results || []);
                 setCustomers(customersData.results || []);
+                setQuotes(quotesData.results || []);
             } catch (error) {
                 console.error('Error fetching data:', error);
             } finally {
@@ -41,9 +45,18 @@ export default function Projects() {
     const handleCreateProject = async (e: React.FormEvent) => {
         e.preventDefault();
         try {
-            await api.post('/projects/', { ...newProject, customer: Number(newProject.customer) });
+            const payload: Record<string, unknown> = {
+                customer: Number(newProject.customer),
+                title: newProject.title,
+                status: newProject.status,
+                description: newProject.description
+            };
+            if (newProject.quote) {
+                payload.quote = Number(newProject.quote);
+            }
+            await api.post('/projects/', payload);
             setShowModal(false);
-            setNewProject({ customer: '', title: '', status: 'PLANNING', description: '' });
+            setNewProject({ customer: '', quote: '', title: '', status: 'PLANNING', description: '' });
             // Refresh
             const data = await api.get<PaginatedResponse<Project>>('/projects/');
             setProjects(data.results || []);
@@ -173,6 +186,19 @@ export default function Projects() {
                                 >
                                     <option value="PLANNING">Planificación</option>
                                     <option value="IN_PROGRESS">En Progreso</option>
+                                </select>
+                            </div>
+                            <div className="form-group">
+                                <label>Cotización (opcional)</label>
+                                <select
+                                    className="form-control"
+                                    value={newProject.quote}
+                                    onChange={(e) => setNewProject({ ...newProject, quote: e.target.value })}
+                                >
+                                    <option value="">Sin cotización vinculada</option>
+                                    {quotes.map(q => (
+                                        <option key={q.id} value={q.id}>COT-{String(q.id).padStart(4, '0')} - {q.customer_name}</option>
+                                    ))}
                                 </select>
                             </div>
                             <div className="form-group">

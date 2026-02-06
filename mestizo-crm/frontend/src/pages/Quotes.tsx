@@ -1,15 +1,16 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api/client';
-import { Quote, PaginatedResponse, Customer } from '../types';
+import { Quote, PaginatedResponse, Customer, Opportunity } from '../types';
 
 export default function Quotes() {
     const [quotes, setQuotes] = useState<Quote[]>([]);
     const [customers, setCustomers] = useState<Customer[]>([]);
+    const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [statusFilter, setStatusFilter] = useState('');
     const [showModal, setShowModal] = useState(false);
-    const [newQuote, setNewQuote] = useState({ customer: '', notes: '' });
+    const [newQuote, setNewQuote] = useState({ customer: '', opportunity: '', notes: '' });
 
     useEffect(() => {
         const fetchData = async () => {
@@ -17,12 +18,14 @@ export default function Quotes() {
                 const params: Record<string, string> = {};
                 if (statusFilter) params.status = statusFilter;
 
-                const [quotesData, customersData] = await Promise.all([
+                const [quotesData, customersData, opportunitiesData] = await Promise.all([
                     api.get<PaginatedResponse<Quote>>('/quotes/', params),
                     api.get<PaginatedResponse<Customer>>('/customers/'),
+                    api.get<PaginatedResponse<Opportunity>>('/opportunities/'),
                 ]);
                 setQuotes(quotesData.results || []);
                 setCustomers(customersData.results || []);
+                setOpportunities(opportunitiesData.results || []);
             } catch (error) {
                 console.error('Error fetching data:', error);
             } finally {
@@ -36,13 +39,17 @@ export default function Quotes() {
     const handleCreateQuote = async (e: React.FormEvent) => {
         e.preventDefault();
         try {
-            const quote = await api.post<Quote>('/quotes/', {
+            const payload: Record<string, unknown> = {
                 customer: Number(newQuote.customer),
                 notes: newQuote.notes,
                 status: 'DRAFT'
-            });
+            };
+            if (newQuote.opportunity) {
+                payload.opportunity = Number(newQuote.opportunity);
+            }
+            const quote = await api.post<Quote>('/quotes/', payload);
             setShowModal(false);
-            setNewQuote({ customer: '', notes: '' });
+            setNewQuote({ customer: '', opportunity: '', notes: '' });
             // Navigate to the new quote
             window.location.href = `/quotes/${quote.id}`;
         } catch (error) {
@@ -174,6 +181,22 @@ export default function Quotes() {
                                     {customers.map(c => (
                                         <option key={c.id} value={c.id}>{c.name}</option>
                                     ))}
+                                </select>
+                            </div>
+                            <div className="form-group">
+                                <label>Oportunidad (opcional)</label>
+                                <select
+                                    className="form-control"
+                                    value={newQuote.opportunity}
+                                    onChange={(e) => setNewQuote({ ...newQuote, opportunity: e.target.value })}
+                                >
+                                    <option value="">Sin oportunidad vinculada</option>
+                                    {opportunities
+                                        .filter(opp => !newQuote.customer || opp.customer === Number(newQuote.customer))
+                                        .map(opp => (
+                                            <option key={opp.id} value={opp.id}>{opp.title} ({opp.customer_name})</option>
+                                        ))
+                                    }
                                 </select>
                             </div>
                             <div className="form-group">
